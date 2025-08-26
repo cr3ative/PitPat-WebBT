@@ -546,7 +546,7 @@ speedSlider.addEventListener('change', () => {
     // Save the speed setting for next time
     saveSpeedSetting(speedSlider.value);
     // Don't cause false starts
-    if (runningState !== 3) {
+    if (runningState === 1) {
         send_data(makePacket("set_speed", curTargetSpeed));
     } else {
         console.log("Not sending speed change packet while stopped to avoid false start");
