@@ -93,6 +93,7 @@ let treadmillData = {};
 let connected = false;
 let runningState = 3; // 0: Starting, 1: Running, 2: Paused, 3: Stopped
 let curTargetSpeed = 1000; // in treadmill units
+let pendingStartSpeedSet = false; // Flag to send speed after start command
 
 // --- Helper Functions ---
 
@@ -342,6 +343,13 @@ function handleNotification(event) {
     updateDashboard(treadmillData);
     updateRunningState(running_state);
 
+    // Send speed setting packet if we just started running
+    if (running_state === 1 && pendingStartSpeedSet) {
+        console.log("Sending speed set packet after start to match curTargetSpeed");
+        pendingStartSpeedSet = false;
+        send_data(makePacket("set_speed", curTargetSpeed));
+    }
+
     // --- Session tracking logic ---
     if (running_state === 1 && !sessionActive) {
         // Session started
@@ -500,11 +508,7 @@ startBtn.addEventListener('click', async () => {
             })();
         }
         send_data(makePacket("start", curTargetSpeed));
-        setTimeout(() => {
-            // Follow up when running to be able to set initial speed
-            console.log("Following fresh start with a speed set packet to match curTargetSpeed");
-            send_data(makePacket("set_speed", curTargetSpeed));
-        }, 4000);
+        pendingStartSpeedSet = true;
     }
 });
 
