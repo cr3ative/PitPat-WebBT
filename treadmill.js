@@ -154,6 +154,7 @@ function updateRunningState(state) {
             case 0: // Starting
                 enableControls(false);
                 startBtn.textContent = "Start";
+                setStatus('Starting');
                 break;
             case 1: // Running
                 enableControls(true);
@@ -499,6 +500,11 @@ startBtn.addEventListener('click', async () => {
             })();
         }
         send_data(makePacket("start", curTargetSpeed));
+        setTimeout(() => {
+            // Follow up when running to be able to set initial speed
+            console.log("Following fresh start with a speed set packet to match curTargetSpeed");
+            send_data(makePacket("set_speed", curTargetSpeed));
+        }, 4000);
     }
 });
 
@@ -510,12 +516,20 @@ stopBtn.addEventListener('click', () => {
 speedUpBtn.addEventListener('click', () => {
     if (!connected) return;
     curTargetSpeed = Math.min(curTargetSpeed + 100, 6000);
+    // Update slider to reflect the new speed and save it
+    speedSlider.value = (curTargetSpeed / 1000).toFixed(1);
+    sliderValue.textContent = speedSlider.value;
+    saveSpeedSetting(speedSlider.value);
     send_data(makePacket("set_speed", curTargetSpeed));
 });
 
 speedDownBtn.addEventListener('click', () => {
     if (!connected) return;
-    curTargetSpeed = Math.max(curTargetSpeed - 1000, 1000);
+    curTargetSpeed = Math.max(curTargetSpeed - 100, 1000);
+    // Update slider to reflect the new speed and save it
+    speedSlider.value = (curTargetSpeed / 1000).toFixed(1);
+    sliderValue.textContent = speedSlider.value;
+    saveSpeedSetting(speedSlider.value);
     send_data(makePacket("set_speed", curTargetSpeed));
 });
 
@@ -525,12 +539,40 @@ speedSlider.addEventListener('input', () => {
 speedSlider.addEventListener('change', () => {
     if (!connected) return;
     curTargetSpeed = Math.round(parseFloat(speedSlider.value) * 1000);
-    send_data(makePacket("set_speed", curTargetSpeed));
+    // Save the speed setting for next time
+    saveSpeedSetting(speedSlider.value);
+    // Don't cause false starts
+    if (runningState !== 3) {
+        send_data(makePacket("set_speed", curTargetSpeed));
+    } else {
+        console.log("Not sending speed change packet while stopped to avoid false start");
+    }
 });
+
+// --- Speed Persistence Functions ---
+function saveSpeedSetting(speed) {
+    localStorage.setItem('treadmill_last_speed', speed.toString());
+}
+
+function loadSpeedSetting() {
+    try {
+        const savedSpeed = localStorage.getItem('treadmill_last_speed');
+        return savedSpeed ? parseFloat(savedSpeed) : null;
+    } catch {
+        return null;
+    }
+}
 
 // --- Initialize ---
 updateDashboard({});
 updateRunningState(3);
+
+// Load and apply saved speed setting
+const savedSpeed = loadSpeedSetting();
+if (savedSpeed !== null && savedSpeed >= parseFloat(speedSlider.min) && savedSpeed <= parseFloat(speedSlider.max)) {
+    speedSlider.value = savedSpeed;
+    curTargetSpeed = Math.round(savedSpeed * 1000);
+}
 sliderValue.textContent = speedSlider.value;
 renderSessionTable();
 
